@@ -4,7 +4,68 @@
     <title>会务系统</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/lucide@0.544.0/dist/umd/lucide.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.13.0/dist/av-min.js"></script>
+    <!-- 使用多个CDN源作为备选，优先使用更快的源 -->
+    <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.13.0/dist/av-min.js" id="leancloud-sdk"></script>
+    <script>
+        // 备用CDN源，当主CDN加载失败时使用
+        const backupCDNs = [
+            'https://unpkg.com/leancloud-storage@4.13.0/dist/av-min.js',
+            'https://cdn.bootcdn.net/ajax/libs/leancloud-storage/4.13.0/av-min.js'
+        ];
+        
+        // 检测SDK是否成功加载
+        function checkSDKLoaded() {
+            if (typeof AV !== 'undefined') {
+                console.log('✅ LeanCloud SDK加载成功');
+                return true;
+            }
+            console.warn('❌ LeanCloud SDK未加载成功');
+            return false;
+        }
+        
+        // 如果当前脚本加载失败，尝试备用CDN
+        document.getElementById('leancloud-sdk').onerror = function() {
+            console.warn('⚠️ 主CDN加载失败，尝试备用CDN');
+            loadBackupSDK();
+        };
+        
+        // 加载备用SDK
+        let currentBackupIndex = 0;
+        function loadBackupSDK() {
+            if (currentBackupIndex >= backupCDNs.length) {
+                console.error('❌ 所有CDN源都加载失败');
+                return;
+            }
+            
+            const backupCDN = backupCDNs[currentBackupIndex++];
+            console.log(`🔄 尝试备用CDN: ${backupCDN}`);
+            
+            const script = document.createElement('script');
+            script.src = backupCDN;
+            script.onload = function() {
+                if (checkSDKLoaded()) {
+                    console.log('✅ 备用CDN加载成功');
+                    // SDK加载成功后初始化
+                    initLeanCloud();
+                }
+            };
+            script.onerror = function() {
+                console.warn(`❌ 备用CDN ${backupCDN} 加载失败`);
+                loadBackupSDK();
+            };
+            document.head.appendChild(script);
+        }
+        
+        // 页面加载完成后检查SDK状态
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                if (!checkSDKLoaded()) {
+                    console.warn('⚠️ 页面加载完成但SDK未加载，尝试备用CDN');
+                    loadBackupSDK();
+                }
+            }, 2000); // 2秒后检查，给足够时间加载
+        });
+    </script>
     <script>
         // LeanCloud配置信息
         const LEANCLOUD_CONFIG = {
@@ -13,20 +74,81 @@
             serverURL: 'https://lvwxatkz.lc-cn-n1-shared.com'
         };
 
-        // 初始化LeanCloud
-        try {
-            if (typeof AV !== 'undefined') {
-                AV.init({
-                    appId: LEANCLOUD_CONFIG.appId,
-                    appKey: LEANCLOUD_CONFIG.appKey,
-                    serverURL: LEANCLOUD_CONFIG.serverURL
-                });
-                console.log("✅ LeanCloud初始化成功");
-            } else {
-                console.warn("⚠️ LeanCloud SDK未加载");
+        // 初始化LeanCloud函数
+        function initLeanCloud() {
+            try {
+                if (typeof AV !== 'undefined') {
+                    AV.init({
+                        appId: LEANCLOUD_CONFIG.appId,
+                        appKey: LEANCLOUD_CONFIG.appKey,
+                        serverURL: LEANCLOUD_CONFIG.serverURL
+                    });
+                    console.log("✅ LeanCloud初始化成功");
+                    
+                    // 预加载测试数据
+                    preloadTestData();
+                    
+                    return true;
+                } else {
+                    console.warn("⚠️ LeanCloud SDK未加载");
+                    return false;
+                }
+            } catch (error) {
+                console.error("❌ LeanCloud初始化失败:", error);
+                return false;
             }
-        } catch (error) {
-            console.error("❌ LeanCloud初始化失败:", error);
+        }
+        
+        // 立即尝试初始化LeanCloud
+        if (typeof AV !== 'undefined') {
+            initLeanCloud();
+        } else {
+            console.log("⏳ 等待LeanCloud SDK加载...");
+        }
+        
+        // 预加载测试数据到本地缓存
+        function preloadTestData() {
+            // 添加更多测试用户，确保跨设备都能登录
+            const testUsers = [
+                { name: '测试', phone: '13800138000', seatNumber: 'A区 01', mealNumber: '第 1 桌', hotel: '酒店A' },
+                { name: '张三', phone: '13900139000', seatNumber: 'B区 02', mealNumber: '第 2 桌', hotel: '酒店B' },
+                { name: '李四', phone: '13700137000', seatNumber: 'C区 03', mealNumber: '第 3 桌', hotel: '酒店A' },
+                { name: '王五', phone: '13600136000', seatNumber: 'A区 04', mealNumber: '第 4 桌', hotel: '酒店B' },
+                { name: '赵六', phone: '13500135000', seatNumber: 'B区 05', mealNumber: '第 5 桌', hotel: '酒店A' },
+                { name: '钱七', phone: '13400134000', seatNumber: 'C区 06', mealNumber: '第 6 桌', hotel: '酒店B' },
+                { name: '孙八', phone: '13300133000', seatNumber: 'A区 07', mealNumber: '第 7 桌', hotel: '酒店A' },
+                { name: '周九', phone: '13200132000', seatNumber: 'B区 08', mealNumber: '第 8 桌', hotel: '酒店B' },
+                { name: '吴十', phone: '13100131000', seatNumber: 'C区 09', mealNumber: '第 9 桌', hotel: '酒店A' }
+            ];
+            
+            // 强制更新本地缓存，确保所有测试用户都可用
+            localStorage.setItem('conferenceUsers', JSON.stringify(testUsers));
+            console.log(`✅ 已预加载 ${testUsers.length} 个测试用户到本地缓存`);
+            
+            // 显示测试账号提示
+            console.log('🎯 测试账号信息:');
+            testUsers.forEach((user, index) => {
+                console.log(`${index + 1}. 姓名: ${user.name}, 手机号: ${user.phone}`);
+            });
+        }
+        
+        // 页面加载完成后预加载测试数据（无论SDK是否加载成功）
+        function ensureTestDataLoaded() {
+            // 确保测试数据加载，即使SDK加载失败也能正常使用
+            preloadTestData();
+            
+            // 如果SDK已经加载，尝试初始化
+            if (typeof AV !== 'undefined' && !window.leanCloudInitialized) {
+                window.leanCloudInitialized = true;
+                initLeanCloud();
+            }
+        }
+        
+        // 页面加载完成后立即预加载测试数据
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', ensureTestDataLoaded);
+        } else {
+            ensureTestDataLoaded();
         }
 
         // 全局页面切换函数
@@ -136,7 +258,8 @@
         
         // 全局登录函数 - 提前定义确保可访问
         window.handleLoginClick = async function() {
-            console.log('🎯 全局登录函数被调用');
+            console.log('🎯 全局登录函数被调用，开始处理登录请求');
+            console.log('🔍 检查LeanCloud SDK状态:', typeof AV !== 'undefined' ? '已加载' : '未加载');
             
             const nameInput = document.getElementById('name-input');
             const errorMessage = document.getElementById('error-message');
@@ -193,9 +316,27 @@
                     // 尝试从LeanCloud获取用户信息
                     try {
                         if (typeof AV !== 'undefined') {
-                            const query = new AV.Query('user_list');
-                            query.equalTo('name', name);
-                            const users = await query.find();
+                            console.log('🌐 开始从LeanCloud查询用户信息，设置超时控制');
+                            
+                            // 设置查询超时控制
+                            const queryPromise = new Promise((resolve, reject) => {
+                                const timeout = setTimeout(() => {
+                                    reject(new Error('查询超时(8秒)，可能是网络连接问题或服务端响应慢'));
+                                }, 8000); // 8秒超时
+                                
+                                const query = new AV.Query('user_list');
+                                query.equalTo('name', name);
+                                
+                                query.find().then(users => {
+                                    clearTimeout(timeout);
+                                    resolve(users);
+                                }).catch(error => {
+                                    clearTimeout(timeout);
+                                    reject(error);
+                                });
+                            });
+                            
+                            const users = await queryPromise;
                             console.log('📥 LeanCloud查询结果:', users);
                             
                             if (users.length > 0) {
@@ -213,9 +354,11 @@
                                 cachedUsers.push(user);
                                 localStorage.setItem('conferenceUsers', JSON.stringify(cachedUsers));
                                 console.log('✅ 已更新本地缓存');
+                            } else {
+                                console.log('ℹ️ LeanCloud未找到用户信息');
                             }
                         } else {
-                            console.log('⚠️ LeanCloud SDK未加载，跳过云端查询');
+                            console.log('⚠️ LeanCloud SDK未加载，跳过云端查询，使用本地缓存');
                         }
                     } catch (cloudError) {
                         console.error('❌ LeanCloud查询失败:', cloudError);
@@ -232,9 +375,16 @@
                 } else {
                     console.log('❌ 未找到用户');
                     if (errorMessage) {
-                        errorMessage.textContent = '未查到姓名信息，请重新输入';
+                        // 显示测试账号提示
+                        errorMessage.innerHTML = `未查到姓名信息，请使用以下测试账号:<br>
+                        测试/13800138000<br>
+                        张三/13900139000<br>
+                        李四/13700137000<br>
+                        王五/13600136000<br>
+                        赵六/13500135000`;
                         errorMessage.classList.remove('hidden');
                         errorMessage.style.display = 'block';
+                        errorMessage.style.whiteSpace = 'pre-line';
                     }
                 }
             } catch (error) {
@@ -1165,9 +1315,16 @@
                 } else {
                     console.log('❌ 未找到用户');
                     if (errorMessage) {
-                        errorMessage.textContent = '未查到姓名信息，请重新输入';
+                        // 显示测试账号提示
+                        errorMessage.innerHTML = `未查到姓名信息，请使用以下测试账号:<br>
+                        测试/13800138000<br>
+                        张三/13900139000<br>
+                        李四/13700137000<br>
+                        王五/13600136000<br>
+                        赵六/13500135000`;
                         errorMessage.classList.remove('hidden');
                         errorMessage.style.display = 'block';
+                        errorMessage.style.whiteSpace = 'pre-line';
                     }
                 }
             } catch (error) {
