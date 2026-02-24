@@ -393,12 +393,7 @@
                     console.log('❌ 未找到用户');
                     if (errorMessage) {
                         // 显示测试账号提示
-                        errorMessage.innerHTML = `未查到姓名信息，请使用以下测试账号:<br>
-                        测试/13800138000<br>
-                        张三/13900139000<br>
-                        李四/13700137000<br>
-                        王五/13600136000<br>
-                        赵六/13500135000`;
+                        errorMessage.textContent = '未找到姓名信息';
                         errorMessage.classList.remove('hidden');
                         errorMessage.style.display = 'block';
                         errorMessage.style.whiteSpace = 'pre-line';
