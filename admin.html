@@ -1,118 +1,494 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>会务系统 - 后台管理</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/lucide@0.544.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <style>
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .table-row:hover {
+            background-color: #f3f4f6;
+        }
+    </style>
 </head>
-<body class="bg-gray-100">
-    <div class="container mx-auto p-8 px-0">
-        <h1 class="text-3xl font-bold text-gray-800 mb-8 text-center">会务系统后台管理</h1>
-        <div class="flex justify-center mb-8">
-            <button class="bg-blue-500 text-white font-bold py-3 px-8 rounded-full hover:bg-blue-600 transition duration-300 text-base w-[calc(50%-20px)] md:w-[calc(33.333%-20px)] lg:w-[calc(25%-20px)]" onclick="window.location.href='index.html'">返回首页</button>
-        </div>
-        <div class="bg-white p-8 rounded-lg shadow-lg">
-            <h2 class="text-2xl font-semibold text-gray-700 mb-6">用户数据导入</h2>
-            <div class="mb-6">
-                <label for="user-data" class="block text-gray-600 mb-2">请输入用户数据（格式：姓名,电话,酒店标识）</label>
-                <textarea id="user-data" rows="10" class="w-full border border-gray-300 rounded-lg p-4" placeholder="例如：&#10;张三,13800138000,酒店A&#10;李四,13800138001,酒店B"></textarea>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+        <!-- 头部 -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800">会务系统后台管理</h1>
+                    <p class="text-gray-500 mt-1">用户数据管理系统</p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="exportToExcel()" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition flex items-center gap-2">
+                        <i class="ri-file-excel-line"></i>
+                        导出Excel
+                    </button>
+                    <label class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition flex items-center gap-2 cursor-pointer">
+                        <i class="ri-upload-2-line"></i>
+                        导入Excel
+                        <input type="file" id="importFile" accept=".xlsx,.xls" class="hidden" onchange="importFromExcel(this)">
+                    </label>
+                </div>
             </div>
-            <button id="import-button" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 transition duration-300">导入数据</button>
         </div>
-        <div class="mt-8 bg-white p-8 rounded-lg shadow-lg">
-            <h2 class="text-2xl font-semibold text-gray-700 mb-6">用户列表</h2>
+
+        <!-- 统计卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow-md p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">总用户数</p>
+                        <p class="text-2xl font-bold text-blue-600" id="totalCount">0</p>
+                    </div>
+                    <div class="bg-blue-100 p-3 rounded-full">
+                        <i class="ri-user-line text-blue-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">今日新增</p>
+                        <p class="text-2xl font-bold text-green-600" id="todayCount">0</p>
+                    </div>
+                    <div class="bg-green-100 p-3 rounded-full">
+                        <i class="ri-user-add-line text-green-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">已分配座位</p>
+                        <p class="text-2xl font-bold text-purple-600" id="seatCount">0</p>
+                    </div>
+                    <div class="bg-purple-100 p-3 rounded-full">
+                        <i class="ri-armchair-line text-purple-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">已分配酒店</p>
+                        <p class="text-2xl font-bold text-orange-600" id="hotelCount">0</p>
+                    </div>
+                    <div class="bg-orange-100 p-3 rounded-full">
+                        <i class="ri-hotel-line text-orange-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 添加/编辑用户表单 -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                <i class="ri-user-add-line text-blue-500"></i>
+                <span id="formTitle">添加用户</span>
+            </h2>
+            <form id="userForm" class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <input type="hidden" id="editIndex" value="">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">姓名 <span class="text-red-500">*</span></label>
+                    <input type="text" id="name" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="请输入姓名">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">手机号 <span class="text-red-500">*</span></label>
+                    <input type="tel" id="phone" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="请输入手机号">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">酒店</label>
+                    <input type="text" id="hotel" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="请输入酒店">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">座位号</label>
+                    <input type="text" id="seatNumber" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="请输入座位号">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">餐席号</label>
+                    <input type="text" id="mealNumber" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="请输入餐席号">
+                </div>
+                <div class="md:col-span-5 flex gap-3">
+                    <button type="submit" class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition flex items-center gap-2">
+                        <i class="ri-save-line"></i>
+                        <span id="submitBtnText">保存</span>
+                    </button>
+                    <button type="button" onclick="resetForm()" class="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400 transition flex items-center gap-2">
+                        <i class="ri-refresh-line"></i>
+                        重置
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- 搜索和筛选 -->
+        <div class="bg-white rounded-lg shadow-md p-4 mb-6">
+            <div class="flex flex-wrap gap-4">
+                <div class="flex-1 min-w-[200px]">
+                    <input type="text" id="searchInput" oninput="searchUsers()" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="搜索姓名、手机号、酒店...">
+                </div>
+                <button onclick="clearAllData()" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition flex items-center gap-2">
+                    <i class="ri-delete-bin-line"></i>
+                    清空所有数据
+                </button>
+            </div>
+        </div>
+
+        <!-- 用户列表 -->
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
             <div class="overflow-x-auto">
-                <table class="min-w-full bg-white">
-                    <thead class="bg-gray-100">
+                <table class="w-full">
+                    <thead class="bg-gray-50">
                         <tr>
-                            <th class="py-2 px-4 border-b border-gray-200 text-left text-sm font-semibold text-gray-700">姓名</th>
-                            <th class="py-2 px-4 border-b border-gray-200 text-left text-sm font-semibold text-gray-700">电话</th>
-                            <th class="py-2 px-4 border-b border-gray-200 text-left text-sm font-semibold text-gray-700">酒店标识</th>
-                            <th class="py-2 px-4 border-b border-gray-200 text-left text-sm font-semibold text-gray-700">坐席</th>
-                            <th class="py-2 px-4 border-b border-gray-200 text-left text-sm font-semibold text-gray-700">餐席</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">手机号</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">酒店</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">座位号</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">餐席号</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                         </tr>
                     </thead>
-                    <tbody id="user-list">
-                        <!-- User data will be inserted here -->
+                    <tbody id="userTableBody" class="divide-y divide-gray-200">
+                        <!-- 动态生成 -->
                     </tbody>
                 </table>
+            </div>
+            <div id="emptyState" class="hidden py-12 text-center">
+                <i class="ri-inbox-line text-6xl text-gray-300 mb-4"></i>
+                <p class="text-gray-500">暂无用户数据</p>
+                <p class="text-gray-400 text-sm mt-2">点击"导入Excel"或添加用户</p>
             </div>
         </div>
     </div>
 
+    <!-- 提示消息 -->
+    <div id="toast" class="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300 z-50 flex items-center gap-2">
+        <i class="ri-check-line"></i>
+        <span id="toastMessage">操作成功</span>
+    </div>
+
     <script>
-        lucide.createIcons();
+        // 数据存储键名（与前台 index.html 保持一致）
+        const STORAGE_KEY = 'conferenceUsers';
+        let users = [];
 
-        const userDataTextarea = document.getElementById('user-data');
-        const importButton = document.getElementById('import-button');
-        const userList = document.getElementById('user-list');
-
-        // Load users from localStorage
-        function loadUsers() {
-            const users = JSON.parse(localStorage.getItem('conferenceUsers') || '[]');
-            renderUsers(users);
-        }
-
-        // Render users to the table
-        function renderUsers(users) {
-            userList.innerHTML = '';
-            users.forEach(user => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td class="py-2 px-4 border-b border-gray-200 text-sm text-gray-700">${user.name}</td>
-                    <td class="py-2 px-4 border-b border-gray-200 text-sm text-gray-700">${user.phone}</td>
-                    <td class="py-2 px-4 border-b border-gray-200 text-sm text-gray-700">${user.hotel}</td>
-                    <td class="py-2 px-4 border-b border-gray-200 text-sm text-gray-700">${user.seatNumber || '-'}</td>
-                    <td class="py-2 px-4 border-b border-gray-200 text-sm text-gray-700">${user.mealNumber || '-'}</td>
-                `;
-                userList.appendChild(row);
-            });
-        }
-
-        // Import users
-        importButton.addEventListener('click', () => {
-            const text = userDataTextarea.value.trim();
-            if (!text) {
-                alert('请输入用户数据');
-                return;
-            }
-
-            const lines = text.split('\n');
-            const users = [];
-
-            for (const line of lines) {
-                if (line.trim() === '') continue;
-                const [name, phone, hotel, seatNumber, mealNumber] = line.split(',').map(item => item.trim());
-                if (name && phone) {
-                    users.push({ name, phone, hotel, seatNumber, mealNumber });
-                }
-            }
-
-            if (users.length > 0) {
-                localStorage.setItem('conferenceUsers', JSON.stringify(users));
-                renderUsers(users);
-                alert(`成功导入 ${users.length} 条用户数据`);
-                userDataTextarea.value = '';
-            } else {
-                alert('未找到有效的用户数据，请检查格式');
-            }
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadUsers();
+            updateStats();
+            renderTable();
         });
 
-        // Add a test user if no users exist
-        function addTestUser() {
-            const users = JSON.parse(localStorage.getItem('conferenceUsers') || '[]');
-            if (users.length === 0) {
-                users.push({ name: '测试', phone: '13800138000', hotel: '酒店A', seatNumber: 'A区 01', mealNumber: '第 1 桌' });
-                localStorage.setItem('conferenceUsers', JSON.stringify(users));
-                renderUsers(users);
+        // 从 localStorage 加载数据
+        function loadUsers() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            if (data) {
+                users = JSON.parse(data);
             }
         }
 
-        // Initial load
-        loadUsers();
-        addTestUser();
+        // 保存数据到 localStorage
+        function saveUsers() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
+            updateStats();
+        }
+
+        // 更新统计数据
+        function updateStats() {
+            document.getElementById('totalCount').textContent = users.length;
+            
+            const today = new Date().toDateString();
+            const todayCount = users.filter(u => {
+                if (u.createdAt) {
+                    return new Date(u.createdAt).toDateString() === today;
+                }
+                return false;
+            }).length;
+            document.getElementById('todayCount').textContent = todayCount;
+            
+            const seatCount = users.filter(u => u.seatNumber && u.seatNumber.trim()).length;
+            document.getElementById('seatCount').textContent = seatCount;
+            
+            const hotelCount = users.filter(u => u.hotel && u.hotel.trim()).length;
+            document.getElementById('hotelCount').textContent = hotelCount;
+        }
+
+        // 渲染表格
+        function renderTable(data = users) {
+            const tbody = document.getElementById('userTableBody');
+            const emptyState = document.getElementById('emptyState');
+            
+            if (data.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            
+            emptyState.classList.add('hidden');
+            tbody.innerHTML = data.map((user, index) => `
+                <tr class="table-row transition fade-in">
+                    <td class="px-4 py-3 text-sm text-gray-900">${index + 1}</td>
+                    <td class="px-4 py-3 text-sm text-gray-900 font-medium">${user.name}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500">${user.phone}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500">${user.hotel || '-'}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500">${user.seatNumber || '-'}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500">${user.mealNumber || '-'}</td>
+                    <td class="px-4 py-3 text-sm">
+                        <button onclick="editUser(${index})" class="text-blue-600 hover:text-blue-800 mr-3" title="编辑">
+                            <i class="ri-edit-line text-lg"></i>
+                        </button>
+                        <button onclick="deleteUser(${index})" class="text-red-600 hover:text-red-800" title="删除">
+                            <i class="ri-delete-bin-line text-lg"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // 表单提交
+        document.getElementById('userForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('name').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+            const hotel = document.getElementById('hotel').value.trim();
+            const seatNumber = document.getElementById('seatNumber').value.trim();
+            const mealNumber = document.getElementById('mealNumber').value.trim();
+            const editIndex = document.getElementById('editIndex').value;
+            
+            // 验证必填项
+            if (!name || !phone) {
+                showToast('请填写姓名和手机号', 'error');
+                return;
+            }
+            
+            // 验证手机号格式
+            if (!/^1[3-9]\d{9}$/.test(phone)) {
+                showToast('手机号格式不正确', 'error');
+                return;
+            }
+            
+            const userData = {
+                name,
+                phone,
+                hotel,
+                seatNumber,
+                mealNumber,
+                updatedAt: new Date().toISOString()
+            };
+            
+            if (editIndex !== '') {
+                // 编辑模式
+                const index = parseInt(editIndex);
+                userData.createdAt = users[index].createdAt;
+                users[index] = userData;
+                showToast('用户更新成功');
+            } else {
+                // 新增模式
+                // 检查是否已存在相同姓名或手机号
+                const existingIndex = users.findIndex(u => u.name === name || u.phone === phone);
+                if (existingIndex !== -1) {
+                    if (!confirm('该姓名或手机号已存在，是否覆盖？')) {
+                        return;
+                    }
+                    userData.createdAt = users[existingIndex].createdAt;
+                    users[existingIndex] = userData;
+                    showToast('用户更新成功');
+                } else {
+                    userData.createdAt = new Date().toISOString();
+                    users.push(userData);
+                    showToast('用户添加成功');
+                }
+            }
+            
+            saveUsers();
+            renderTable();
+            resetForm();
+        });
+
+        // 编辑用户
+        function editUser(index) {
+            const user = users[index];
+            document.getElementById('name').value = user.name;
+            document.getElementById('phone').value = user.phone;
+            document.getElementById('hotel').value = user.hotel || '';
+            document.getElementById('seatNumber').value = user.seatNumber || '';
+            document.getElementById('mealNumber').value = user.mealNumber || '';
+            document.getElementById('editIndex').value = index;
+            document.getElementById('formTitle').textContent = '编辑用户';
+            document.getElementById('submitBtnText').textContent = '更新';
+            
+            // 滚动到表单
+            document.getElementById('userForm').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // 删除用户
+        function deleteUser(index) {
+            if (confirm('确定要删除该用户吗？')) {
+                users.splice(index, 1);
+                saveUsers();
+                renderTable();
+                showToast('用户删除成功');
+            }
+        }
+
+        // 重置表单
+        function resetForm() {
+            document.getElementById('userForm').reset();
+            document.getElementById('editIndex').value = '';
+            document.getElementById('formTitle').textContent = '添加用户';
+            document.getElementById('submitBtnText').textContent = '保存';
+        }
+
+        // 搜索用户
+        function searchUsers() {
+            const keyword = document.getElementById('searchInput').value.toLowerCase().trim();
+            if (!keyword) {
+                renderTable(users);
+                return;
+            }
+            
+            const filtered = users.filter(user => 
+                user.name.toLowerCase().includes(keyword) ||
+                user.phone.includes(keyword) ||
+                (user.hotel && user.hotel.toLowerCase().includes(keyword)) ||
+                (user.seatNumber && user.seatNumber.toLowerCase().includes(keyword)) ||
+                (user.mealNumber && user.mealNumber.toLowerCase().includes(keyword))
+            );
+            renderTable(filtered);
+        }
+
+        // 导入 Excel
+        function importFromExcel(input) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+                    
+                    if (jsonData.length === 0) {
+                        showToast('Excel 文件为空', 'error');
+                        return;
+                    }
+                    
+                    let addedCount = 0;
+                    let updatedCount = 0;
+                    
+                    jsonData.forEach(row => {
+                        const name = row['姓名'] || row['name'] || '';
+                        const phone = row['手机号'] || row['phone'] || '';
+                        const hotel = row['酒店'] || row['hotel'] || '';
+                        const seatNumber = row['座位号'] || row['seatNumber'] || '';
+                        const mealNumber = row['餐席号'] || row['mealNumber'] || '';
+                        
+                        if (!name || !phone) return;
+                        
+                        const userData = {
+                            name: String(name).trim(),
+                            phone: String(phone).trim(),
+                            hotel: String(hotel).trim(),
+                            seatNumber: String(seatNumber).trim(),
+                            mealNumber: String(mealNumber).trim(),
+                            updatedAt: new Date().toISOString()
+                        };
+                        
+                        const existingIndex = users.findIndex(u => 
+                            u.name === userData.name || u.phone === userData.phone
+                        );
+                        
+                        if (existingIndex !== -1) {
+                            userData.createdAt = users[existingIndex].createdAt;
+                            users[existingIndex] = userData;
+                            updatedCount++;
+                        } else {
+                            userData.createdAt = new Date().toISOString();
+                            users.push(userData);
+                            addedCount++;
+                        }
+                    });
+                    
+                    saveUsers();
+                    renderTable();
+                    showToast(`导入成功！新增 ${addedCount} 条，更新 ${updatedCount} 条`);
+                    
+                } catch (error) {
+                    console.error(error);
+                    showToast('导入失败，请检查文件格式', 'error');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+            input.value = '';
+        }
+
+        // 导出 Excel
+        function exportToExcel() {
+            if (users.length === 0) {
+                showToast('没有数据可导出', 'error');
+                return;
+            }
+            
+            const exportData = users.map(user => ({
+                '姓名': user.name,
+                '手机号': user.phone,
+                '酒店': user.hotel || '',
+                '座位号': user.seatNumber || '',
+                '餐席号': user.mealNumber || ''
+            }));
+            
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, '用户数据');
+            
+            const now = new Date();
+            const filename = `会务系统用户数据_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}.xlsx`;
+            
+            XLSX.writeFile(workbook, filename);
+            showToast('导出成功');
+        }
+
+        // 清空所有数据
+        function clearAllData() {
+            if (confirm('确定要清空所有用户数据吗？此操作不可恢复！')) {
+                users = [];
+                saveUsers();
+                renderTable();
+                showToast('数据已清空');
+            }
+        }
+
+        // 显示提示消息
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            
+            toast.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg transform transition-transform duration-300 z-50 flex items-center gap-2 ${
+                type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+            }`;
+            
+            toastMessage.textContent = message;
+            toast.classList.remove('translate-x-full');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-x-full');
+            }, 3000);
+        }
     </script>
 </body>
 </html>
