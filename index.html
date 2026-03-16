@@ -177,10 +177,23 @@
                         const cachedUserName = localStorage.getItem('cachedUserName');
                         if (cachedUserName) {
                             console.log('🔄 加载用户信息:', cachedUserName);
-                            const userData = localStorage.getItem('currentUser');
-                            if (userData) {
-                                const user = JSON.parse(userData);
-                                updateUserInfo(user);
+                            
+                            // 从 conferenceUsers 中获取最新数据
+                            const conferenceUsers = JSON.parse(localStorage.getItem('conferenceUsers') || '[]');
+                            const latestUser = conferenceUsers.find(u => u.name === cachedUserName);
+                            
+                            if (latestUser) {
+                                // 更新缓存
+                                localStorage.setItem('currentUser', JSON.stringify(latestUser));
+                                updateUserInfo(latestUser);
+                                console.log('✅ 已更新用户信息到最新版本');
+                            } else {
+                                // 回退到缓存
+                                const userData = localStorage.getItem('currentUser');
+                                if (userData) {
+                                    const user = JSON.parse(userData);
+                                    updateUserInfo(user);
+                                }
                             }
                         }
                     }, 100);
