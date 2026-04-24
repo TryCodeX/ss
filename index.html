@@ -453,6 +453,7 @@
                     // 缓存用户信息
                     localStorage.setItem('cachedUserName', name);
                     localStorage.setItem('currentUser', JSON.stringify(user));
+                    localStorage.setItem('loginSession', '1');
                     // 跳转到会议中心
                     window.showPage('conference-center-page');
                 } else {
@@ -621,9 +622,10 @@
             console.log('🔍 检查缓存的用户信息...');
             const cachedUserName = localStorage.getItem('cachedUserName');
             const cachedUserData = localStorage.getItem('currentUser');
+            const loginSession = localStorage.getItem('loginSession');
             let hasValidSession = false;
 
-            if (cachedUserName && cachedUserData) {
+            if (loginSession === '1' && cachedUserName && cachedUserData) {
                 try {
                     const user = JSON.parse(cachedUserData);
                     hasValidSession = !!(user && typeof user === 'object' && user.name && user.name === cachedUserName);
@@ -646,10 +648,14 @@
                     // 清除损坏的缓存
                     localStorage.removeItem('cachedUserName');
                     localStorage.removeItem('currentUser');
+                    localStorage.removeItem('loginSession');
                 }
             } else {
                 console.log('ℹ️ 未发现缓存的用户信息，显示登录页面');
                 // 确保显示登录页面
+                localStorage.removeItem('cachedUserName');
+                localStorage.removeItem('currentUser');
+                localStorage.removeItem('loginSession');
                 window.showPage('login-page');
             }
         });
