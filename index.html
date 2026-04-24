@@ -666,12 +666,26 @@
         }
         .logo {
             background-image: var(--logo-url);
+            width: 75%;
+            max-width: 320px;
+            height: 160px;
+            background-size: auto 100%;
+            background-repeat: no-repeat;
+            background-position: left center;
         }
         .title-img {
             background-image: var(--title-img-url);
-            background-size: contain;
+            width: 75%;
+            max-width: 320px;
+            height: 160px;
+            background-size: auto 100%;
             background-repeat: no-repeat;
-            background-position: left;
+            background-position: left center;
+        }
+        .page-header-img {
+            width: 75%;
+            max-width: 320px;
+            height: auto;
         }
         #meeting-agenda-carousel .carousel-item img {
             width: 100% !important;
@@ -684,7 +698,7 @@
     <div id="app" class="max-w-md mx-auto h-screen bg-white shadow-lg">
         <!-- Login Page -->
         <div id="login-page" class="h-full bg-img bg-cover flex flex-col items-start justify-start p-8 pt-40">
-            <div class="logo w-full h-48 bg-contain bg-left bg-no-repeat mb-6"></div>
+            <div class="logo mb-6"></div>
             <div class="w-full mb-4">
                 <input type="text" id="name-input" placeholder="姓名/NAME" title="请输入姓名（与报名姓名一致）" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" class="w-full bg-white/20 border border-white/40 rounded-lg p-3 text-white placeholder-white/60 focus:outline-none focus:ring-0" value="" onfocus="this.select()" oninput="document.getElementById('error-message').classList.add('hidden')">
                 <p id="error-message" class="text-red-500 text-sm mt-1 hidden" style="font-size: 14px; color: rgb(250, 2, 2); font-style: normal;">请输入姓名</p>
@@ -696,7 +710,7 @@
         <div id="conference-center-page" class="h-full hidden bg-img bg-cover flex flex-col">
 
             <main class="flex-1 p-4 flex flex-col overflow-y-auto">
-                <div class="title-img w-full h-80 bg-contain bg-left bg-no-repeat mb-8"></div>
+                <div class="title-img mb-6"></div>
                 <div class="space-y-4 flex-1">
                     <div id="intro-card" class="conference-info rounded-lg overflow-hidden cursor-pointer" data-target="conference-intro-page" onclick="showPage('conference-intro-page')">
                         <img src="" data-image-key="introCard" alt="会议介绍" class="w-full h-auto">
@@ -731,7 +745,7 @@
         <div id="conference-intro-page" class="h-full hidden bg-img bg-cover flex flex-col">
             <main class="flex-1 p-0 overflow-y-auto">
                 <div class="rounded-lg p-4 text-white">
-                    <img src="" data-image-key="pageHeader" alt="高层次国际化人才培养创新实践项目年度交流推进会" class="w-3/4 h-auto mb-4">
+                    <img src="" data-image-key="pageHeader" alt="高层次国际化人才培养创新实践项目年度交流推进会" class="page-header-img mb-4">
                     <div class="flex items-center mb-4">
                         <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center mr-3">
                             <span class="font-bold">01</span>
@@ -755,7 +769,7 @@
         <div id="meeting-schedule-page" class="h-full hidden bg-img bg-cover flex flex-col">
             <main class="flex-1 p-0 overflow-y-auto">
                 <div class="rounded-lg p-4 text-white">
-                    <img src="" data-image-key="pageHeader" alt="会议日程" class="w-3/4 h-auto mb-4">
+                    <img src="" data-image-key="pageHeader" alt="会议日程" class="page-header-img mb-4">
                     <div class="flex items-center mb-4">
                         <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center mr-3">
                             <span class="font-bold">02</span>
@@ -806,7 +820,7 @@
             <main class="flex-1 p-0 overflow-y-auto">
                 <div class="rounded-lg p-4 text-white">
 
-                    <img src="" data-image-key="pageHeader" alt="高层次国际化人才培养创新实践项目年度交流推进会" class="w-3/4 h-auto mb-4">
+                    <img src="" data-image-key="pageHeader" alt="高层次国际化人才培养创新实践项目年度交流推进会" class="page-header-img mb-4">
                     <div class="flex items-center mb-4">
                         <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center mr-3">
                             <span class="font-bold">03</span>
@@ -849,7 +863,7 @@
         <div id="seat-food-hotel-page" class="h-full hidden bg-img bg-cover flex flex-col">
             <main class="flex-1 p-0 overflow-y-auto">
                 <div class="rounded-lg p-4 text-white">
-                    <img src="" data-image-key="pageHeader" alt="高层次国际化人才培养创新实践项目年度交流推进会" class="w-3/4 h-auto mb-4">
+                    <img src="" data-image-key="pageHeader" alt="高层次国际化人才培养创新实践项目年度交流推进会" class="page-header-img mb-4">
                     <div class="flex items-center mb-4">
                         <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center mr-3">
                             <span class="font-bold">04</span>
