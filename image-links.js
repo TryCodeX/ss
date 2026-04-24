@@ -1,0 +1,20 @@
+window.IMAGE_LINKS = {
+  bgImg: "https://s41.ax1x.com/2026/01/06/pZdwNlT.png",
+  logo: "https://s41.ax1x.com/2025/12/17/pZlGEUP.png",
+  titleImg: "https://s41.ax1x.com/2025/12/17/pZlGEUP.png",
+  introCard: "https://s41.ax1x.com/2026/01/06/pZdDRXT.png",
+  scheduleCard: "https://s41.ax1x.com/2026/01/06/pZdshFJ.png",
+  routeCard: "https://cdn4.winhlb.com/2026/01/07/695dc78330c3d.png",
+  seatCard: "https://cdn4.winhlb.com/2026/01/07/695dc7833987c.png",
+  liveCard: "https://s41.ax1x.com/2026/01/06/pZdsWo4.png",
+  pageHeader: "https://s41.ax1x.com/2025/12/17/pZlGEUP.png",
+  scheduleSlide1: "https://s41.ax1x.com/2026/01/06/pZdsYsf.jpg",
+  scheduleSlide2: "https://s41.ax1x.com/2026/01/06/pZds9ZF.jpg",
+  scheduleSlideFallback1: "https://picsum.photos/800/400?random=1",
+  scheduleSlideFallback2: "https://picsum.photos/800/300?random=2",
+  routeMap: "https://s41.ax1x.com/2026/01/06/pZdB3R0.png",
+  meetingSeat: "https://cdn4.winhlb.com/2026/01/07/695dd0ccc95eb.jpg",
+  lunchSeat: "https://cdn4.winhlb.com/2026/01/07/695dd3121792b.jpg",
+  hotelInfo: "https://cdn4.winhlb.com/2026/01/07/695dd3e214c38.png",
+  hotelMap: "https://s41.ax1x.com/2025/12/17/pZlGEUP.png"
+};

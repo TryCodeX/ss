@@ -6,6 +6,7 @@
     <title>会务系统 - 后台管理</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
     <style>
         .fade-in {
@@ -21,7 +22,44 @@
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
-    <div class="container mx-auto px-4 py-8 max-w-7xl">
+    <!-- 登录页（默认显示，登录后隐藏） -->
+    <div id="loginView" class="min-h-screen flex items-center justify-center px-4">
+        <div class="w-full max-w-md bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <h1 class="text-xl font-bold text-gray-800">后台管理员登录</h1>
+                    <p class="text-sm text-gray-500 mt-1">登录后才可查看与管理用户数据</p>
+                </div>
+                <div class="text-gray-400">
+                    <i class="ri-shield-keyhole-line text-xl"></i>
+                </div>
+            </div>
+
+            <form id="loginForm" class="mt-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">管理员邮箱</label>
+                    <input type="email" id="adminEmailInput" autocomplete="username" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="admin@example.com">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">密码</label>
+                    <input type="password" id="adminPasswordInput" autocomplete="current-password" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="请输入密码">
+                </div>
+                <button id="loginBtn" type="submit" class="w-full bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition flex items-center justify-center gap-2">
+                    <i class="ri-login-box-line"></i>
+                    <span>登录</span>
+                </button>
+                <p id="loginError" class="hidden text-sm text-red-500"></p>
+            </form>
+
+            <div class="mt-4 text-xs text-gray-400 leading-relaxed">
+                <p id="adminHint"></p>
+                <p class="mt-1">提示：管理员账号需要在 Supabase Auth 里创建；后台写入权限由 RLS 策略控制。</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 管理后台（登录后显示） -->
+    <div id="appView" class="hidden container mx-auto px-4 py-8 max-w-7xl">
         <!-- 头部 -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
             <div class="flex justify-between items-center">
@@ -29,7 +67,12 @@
                     <h1 class="text-2xl font-bold text-gray-800">会务系统后台管理</h1>
                     <p class="text-gray-500 mt-1">用户数据管理系统</p>
                 </div>
-                <div class="flex gap-3">
+                <div class="flex gap-3 items-center">
+                    <span id="adminEmail" class="hidden md:inline text-sm text-gray-500"></span>
+                    <button onclick="logout()" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition flex items-center gap-2">
+                        <i class="ri-logout-box-line"></i>
+                        退出登录
+                    </button>
                     <button onclick="exportToExcel()" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition flex items-center gap-2">
                         <i class="ri-file-excel-line"></i>
                         导出Excel
@@ -98,7 +141,7 @@
                 <span id="formTitle">添加用户</span>
             </h2>
             <form id="userForm" class="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <input type="hidden" id="editIndex" value="">
+                <input type="hidden" id="editId" value="">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">姓名 <span class="text-red-500">*</span></label>
                     <input type="text" id="name" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="请输入姓名">
@@ -180,8 +223,21 @@
     </div>
 
     <script>
-        // 数据存储键名（与前台 index.html 保持一致）
-        const STORAGE_KEY = 'conferenceUsers';
+        /* Legacy admin code (disabled). */
+        /*
+        // Supabase 配置
+        const supabaseUrl = 'https://kanqjlqncwpxdidsltzq.supabase.co';
+        const supabaseKey = 'sb_publishable_tGPNdD0vZkqofDpUMcgmOQ_4a_VtdsO';
+        console.log('初始化 Supabase 客户端:', { supabaseUrl, supabaseKey });
+        
+        // Supabase SDK 会自动在全局创建 supabase 对象，我们直接使用
+        if (typeof supabase !== 'undefined') {
+            supabase = supabase.createClient(supabaseUrl, supabaseKey);
+            console.log('✅ Supabase 客户端初始化成功');
+        } else {
+            console.error('❌ Supabase SDK 未加载');
+        }
+        
         let users = [];
 
         // 初始化
@@ -191,25 +247,31 @@
             renderTable();
         });
 
-        // 从 localStorage 加载数据
-        function loadUsers() {
-            const data = localStorage.getItem(STORAGE_KEY);
-            if (data) {
-                users = JSON.parse(data);
-            } else {
-                // 如果没有数据，添加默认测试数据
-                users = [
-                    { name: '测试', phone: '13800138000', hotel: '酒店A', seatNumber: 'A区 01', mealNumber: '第 1 桌', createdAt: new Date().toISOString() },
-                    { name: '张三', phone: '13900139000', hotel: '酒店B', seatNumber: 'B区 02', mealNumber: '第 2 桌', createdAt: new Date().toISOString() },
-                    { name: '李四', phone: '13700137000', hotel: '酒店A', seatNumber: 'C区 03', mealNumber: '第 3 桌', createdAt: new Date().toISOString() }
-                ];
-                saveUsers();
+        // 从 Supabase 加载数据
+        async function loadUsers() {
+            try {
+                const { data, error } = await supabase
+                    .from('conference_users')
+                    .select('*')
+                    .order('createdAt', { ascending: false });
+                
+                if (error) {
+                    console.error('加载数据失败:', error);
+                    showToast('加载数据失败', 'error');
+                    users = [];
+                } else {
+                    users = data || [];
+                }
+            } catch (error) {
+                console.error('加载数据异常:', error);
+                showToast('加载数据异常', 'error');
+                users = [];
             }
         }
 
-        // 保存数据到 localStorage
-        function saveUsers() {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
+        // 保存数据到 Supabase
+        async function saveUsers() {
+            // 注意：这里不再需要批量保存，因为每个操作都会直接更新 Supabase
             updateStats();
         }
 
@@ -231,6 +293,24 @@
             
             const hotelCount = users.filter(u => u.hotel && u.hotel.trim()).length;
             document.getElementById('hotelCount').textContent = hotelCount;
+        }
+
+        // 搜索用户
+        function searchUsers() {
+            const keyword = document.getElementById('searchInput').value.toLowerCase().trim();
+            if (!keyword) {
+                renderTable(users);
+                return;
+            }
+            
+            const filtered = users.filter(user => 
+                user.name.toLowerCase().includes(keyword) ||
+                user.phone.includes(keyword) ||
+                (user.hotel && user.hotel.toLowerCase().includes(keyword)) ||
+                (user.seatNumber && user.seatNumber.toLowerCase().includes(keyword)) ||
+                (user.mealNumber && user.mealNumber.toLowerCase().includes(keyword))
+            );
+            renderTable(filtered);
         }
 
         // 渲染表格
@@ -262,7 +342,7 @@
         }
 
         // 表单提交
-        document.getElementById('userForm').addEventListener('submit', function(e) {
+        document.getElementById('userForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const name = document.getElementById('name').value.trim();
@@ -270,7 +350,7 @@
             const hotel = document.getElementById('hotel').value.trim();
             const seatNumber = document.getElementById('seatNumber').value.trim();
             const mealNumber = document.getElementById('mealNumber').value.trim();
-            const editIndex = document.getElementById('editIndex').value;
+            const editIndex = document.getElementById('editId').value;
             
             // 验证必填项
             if (!name || !phone) {
@@ -284,42 +364,111 @@
                 return;
             }
             
-            const userData = {
-                name,
-                phone,
-                hotel,
-                seatNumber,
-                mealNumber,
-                updatedAt: new Date().toISOString()
-            };
-            
-            if (editIndex !== '') {
-                // 编辑模式
-                const index = parseInt(editIndex);
-                userData.createdAt = users[index].createdAt;
-                users[index] = userData;
-                showToast('用户更新成功');
-            } else {
-                // 新增模式
-                // 检查是否已存在相同姓名或手机号
-                const existingIndex = users.findIndex(u => u.name === name || u.phone === phone);
-                if (existingIndex !== -1) {
-                    if (!confirm('该姓名或手机号已存在，是否覆盖？')) {
-                        return;
+            try {
+                console.log('开始保存用户数据:', { name, phone, hotel, seatNumber, mealNumber, editIndex });
+                
+                if (editIndex !== '') {
+                    // 编辑模式
+                    const index = parseInt(editIndex);
+                    const user = users[index];
+                    console.log('编辑模式 - 用户ID:', user.id);
+                    
+                    const { error } = await supabase
+                        .from('conference_users')
+                        .update({
+                            name,
+                            phone,
+                            hotel,
+                            seatNumber,
+                            mealNumber,
+                            updatedAt: new Date().toISOString()
+                        })
+                        .eq('id', user.id);
+                    
+                    console.log('更新结果:', { error });
+                    
+                    if (error) {
+                        throw error;
                     }
-                    userData.createdAt = users[existingIndex].createdAt;
-                    users[existingIndex] = userData;
+                    
                     showToast('用户更新成功');
                 } else {
-                    userData.createdAt = new Date().toISOString();
-                    users.push(userData);
-                    showToast('用户添加成功');
+                    // 新增模式
+                    // 检查是否已存在相同姓名或手机号
+                    console.log('新增模式 - 检查重复');
+                    const { data: existingUsers, error: checkError } = await supabase
+                        .from('conference_users')
+                        .select('id')
+                        .or(`name.eq.${name},phone.eq.${phone}`);
+                    
+                    console.log('重复检查结果:', { existingUsers, checkError });
+                    
+                    if (checkError) {
+                        throw checkError;
+                    }
+                    
+                    if (existingUsers && existingUsers.length > 0) {
+                        if (!confirm('该姓名或手机号已存在，是否覆盖？')) {
+                            return;
+                        }
+                        
+                        // 更新现有用户
+                        console.log('更新现有用户:', existingUsers[0].id);
+                        const { error: updateError } = await supabase
+                            .from('conference_users')
+                            .update({
+                                name,
+                                phone,
+                                hotel,
+                                seatNumber,
+                                mealNumber,
+                                updatedAt: new Date().toISOString()
+                            })
+                            .eq('id', existingUsers[0].id);
+                        
+                        console.log('更新结果:', { updateError });
+                        
+                        if (updateError) {
+                            throw updateError;
+                        }
+                        
+                        showToast('用户更新成功');
+                    } else {
+                        // 添加新用户
+                        console.log('添加新用户');
+                        const { data, error: insertError } = await supabase
+                            .from('conference_users')
+                            .insert({
+                                name,
+                                phone,
+                                hotel,
+                                seatNumber,
+                                mealNumber,
+                                createdAt: new Date().toISOString(),
+                                updatedAt: new Date().toISOString()
+                            })
+                            .select();
+                        
+                        console.log('添加结果:', { data, insertError });
+                        
+                        if (insertError) {
+                            throw insertError;
+                        }
+                        
+                        showToast('用户添加成功');
+                    }
                 }
+                
+                // 重新加载数据
+                console.log('重新加载数据');
+                await loadUsers();
+                console.log('数据加载完成，共', users.length, '条记录');
+                renderTable();
+                resetForm();
+            } catch (error) {
+                console.error('操作失败:', error);
+                showToast('操作失败: ' + error.message, 'error');
             }
-            
-            saveUsers();
-            renderTable();
-            resetForm();
         });
 
         // 编辑用户
@@ -330,7 +479,7 @@
             document.getElementById('hotel').value = user.hotel || '';
             document.getElementById('seatNumber').value = user.seatNumber || '';
             document.getElementById('mealNumber').value = user.mealNumber || '';
-            document.getElementById('editIndex').value = index;
+                    document.getElementById('editId').value = index;
             document.getElementById('formTitle').textContent = '编辑用户';
             document.getElementById('submitBtnText').textContent = '更新';
             
@@ -339,39 +488,37 @@
         }
 
         // 删除用户
-        function deleteUser(index) {
+        async function deleteUser(index) {
             if (confirm('确定要删除该用户吗？')) {
-                users.splice(index, 1);
-                saveUsers();
-                renderTable();
-                showToast('用户删除成功');
+                try {
+                    const user = users[index];
+                    
+                    const { error } = await supabase
+                        .from('conference_users')
+                        .delete()
+                        .eq('id', user.id);
+                    
+                    if (error) {
+                        throw error;
+                    }
+                    
+                    // 重新加载数据
+                    await loadUsers();
+                    renderTable();
+                    showToast('用户删除成功');
+                } catch (error) {
+                    console.error('删除失败:', error);
+                    showToast('删除失败: ' + error.message, 'error');
+                }
             }
         }
 
         // 重置表单
         function resetForm() {
             document.getElementById('userForm').reset();
-            document.getElementById('editIndex').value = '';
+            document.getElementById('editId').value = '';
             document.getElementById('formTitle').textContent = '添加用户';
             document.getElementById('submitBtnText').textContent = '保存';
-        }
-
-        // 搜索用户
-        function searchUsers() {
-            const keyword = document.getElementById('searchInput').value.toLowerCase().trim();
-            if (!keyword) {
-                renderTable(users);
-                return;
-            }
-            
-            const filtered = users.filter(user => 
-                user.name.toLowerCase().includes(keyword) ||
-                user.phone.includes(keyword) ||
-                (user.hotel && user.hotel.toLowerCase().includes(keyword)) ||
-                (user.seatNumber && user.seatNumber.toLowerCase().includes(keyword)) ||
-                (user.mealNumber && user.mealNumber.toLowerCase().includes(keyword))
-            );
-            renderTable(filtered);
         }
 
         // 导入 Excel
@@ -468,12 +615,25 @@
         }
 
         // 清空所有数据
-        function clearAllData() {
+        async function clearAllData() {
             if (confirm('确定要清空所有用户数据吗？此操作不可恢复！')) {
-                users = [];
-                saveUsers();
-                renderTable();
-                showToast('数据已清空');
+                try {
+                    const { error } = await supabase
+                        .from('conference_users')
+                        .delete();
+                    
+                    if (error) {
+                        throw error;
+                    }
+                    
+                    // 重新加载数据
+                    await loadUsers();
+                    renderTable();
+                    showToast('数据已清空');
+                } catch (error) {
+                    console.error('清空数据失败:', error);
+                    showToast('清空数据失败: ' + error.message, 'error');
+                }
             }
         }
 
@@ -493,6 +653,713 @@
                 toast.classList.add('translate-x-full');
             }, 3000);
         }
+        */
+
+        (function () {
+            'use strict';
+
+            const SUPABASE_URL = 'https://kanqjlqncwpxdidsltzq.supabase.co';
+            const SUPABASE_KEY = 'sb_publishable_tGPNdD0vZkqofDpUMcgmOQ_4a_VtdsO';
+
+            const ADMIN_EMAIL_ALLOWLIST = ['243614711@qq.com'];
+            const AUTH_STORAGE_KEY = 'conference_admin_auth_v1';
+
+            function $(id) {
+                return document.getElementById(id);
+            }
+
+            function setHidden(el, hidden) {
+                if (!el) return;
+                if (hidden) el.classList.add('hidden');
+                else el.classList.remove('hidden');
+            }
+
+            function showToast(message, type) {
+                const toast = $('toast');
+                const toastMessage = $('toastMessage');
+                if (!toast || !toastMessage) return;
+
+                toast.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg transform transition-transform duration-300 z-50 flex items-center gap-2 ${
+                    type === 'error' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'
+                }`;
+
+                toastMessage.textContent = String(message || '');
+                toast.classList.remove('translate-x-full');
+                window.setTimeout(() => toast.classList.add('translate-x-full'), 3000);
+            }
+
+            function isAllowedAdminEmail(email) {
+                if (!ADMIN_EMAIL_ALLOWLIST || ADMIN_EMAIL_ALLOWLIST.length === 0) return true;
+                return ADMIN_EMAIL_ALLOWLIST.indexOf(String(email || '').toLowerCase()) !== -1;
+            }
+
+            function createSupabaseClient() {
+                if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+                    throw new Error('Supabase SDK 未加载（请检查网络/CDN）');
+                }
+
+                return window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+                    auth: {
+                        persistSession: true,
+                        autoRefreshToken: true,
+                        detectSessionInUrl: false,
+                        storageKey: AUTH_STORAGE_KEY
+                    }
+                });
+            }
+
+            let supabaseClient = null;
+            let currentSession = null;
+
+            async function logout() {
+                try {
+                    if (supabaseClient) await supabaseClient.auth.signOut();
+                } finally {
+                    currentSession = null;
+                    setHidden($('appView'), true);
+                    setHidden($('loginView'), false);
+                }
+            }
+            window.logout = logout;
+
+            function showLogin(message) {
+                setHidden($('appView'), true);
+                setHidden($('loginView'), false);
+
+                const loginError = $('loginError');
+                if (!loginError) return;
+
+                if (message) {
+                    loginError.textContent = message;
+                    setHidden(loginError, false);
+                } else {
+                    setHidden(loginError, true);
+                }
+            }
+
+            async function showApp(session) {
+                currentSession = session;
+                const email = session && session.user && session.user.email ? session.user.email : '';
+
+                if (!isAllowedAdminEmail(email)) {
+                    await logout();
+                    showToast('该账号没有后台权限，请使用管理员邮箱登录', 'error');
+                    return;
+                }
+
+                const adminEmail = $('adminEmail');
+                if (adminEmail) adminEmail.textContent = email ? `已登录：${email}` : '已登录';
+
+                setHidden($('loginView'), true);
+                setHidden($('appView'), false);
+                await loadUsers({ force: true });
+            }
+
+            const schema = {
+                seat: 'seat_number',
+                meal: 'meal_number',
+                created: 'created_at',
+                updated: 'updated_at'
+            };
+
+            function detectSchemaFromRow(row) {
+                if (!row || typeof row !== 'object') return;
+
+                if (Object.prototype.hasOwnProperty.call(row, 'seat_number')) schema.seat = 'seat_number';
+                else if (Object.prototype.hasOwnProperty.call(row, 'seatNumber')) schema.seat = 'seatNumber';
+
+                if (Object.prototype.hasOwnProperty.call(row, 'meal_number')) schema.meal = 'meal_number';
+                else if (Object.prototype.hasOwnProperty.call(row, 'mealNumber')) schema.meal = 'mealNumber';
+
+                if (Object.prototype.hasOwnProperty.call(row, 'created_at')) schema.created = 'created_at';
+                else if (Object.prototype.hasOwnProperty.call(row, 'createdAt')) schema.created = 'createdAt';
+
+                if (Object.prototype.hasOwnProperty.call(row, 'updated_at')) schema.updated = 'updated_at';
+                else if (Object.prototype.hasOwnProperty.call(row, 'updatedAt')) schema.updated = 'updatedAt';
+            }
+
+            function normalizeUser(row) {
+                if (!row) return null;
+                detectSchemaFromRow(row);
+
+                return {
+                    id: row.id,
+                    name: row.name || '',
+                    phone: row.phone || '',
+                    hotel: row.hotel || '',
+                    seatNumber: row[schema.seat] || '',
+                    mealNumber: row[schema.meal] || '',
+                    createdAt: row[schema.created] || '',
+                    updatedAt: row[schema.updated] || ''
+                };
+            }
+
+            function buildDbPayload(input, mode) {
+                const payload = {
+                    name: input.name,
+                    phone: input.phone,
+                    hotel: input.hotel || ''
+                };
+
+                payload[schema.seat] = input.seatNumber || '';
+                payload[schema.meal] = input.mealNumber || '';
+
+                const nowIso = new Date().toISOString();
+                if (schema.updated) payload[schema.updated] = nowIso;
+                if (mode === 'insert' && schema.created) payload[schema.created] = nowIso;
+
+                return payload;
+            }
+
+            let users = [];
+            let loadUsersPromise = null;
+            let lastLoadAt = 0;
+
+            function requireAuthed() {
+                if (!currentSession) {
+                    showToast('请先登录后台', 'error');
+                    throw new Error('Not authenticated');
+                }
+            }
+
+            async function fetchUsersOrdered() {
+                const candidates = [];
+                if (schema.created) candidates.push(schema.created);
+                candidates.push(schema.created === 'created_at' ? 'createdAt' : 'created_at');
+
+                for (let i = 0; i < candidates.length; i++) {
+                    const field = candidates[i];
+                    if (!field || candidates.indexOf(field) !== i) continue;
+
+                    const { data, error } = await supabaseClient
+                        .from('conference_users')
+                        .select('*')
+                        .order(field, { ascending: false });
+
+                    if (!error) return data || [];
+
+                    const msg = String(error.message || '').toLowerCase();
+                    if (msg.indexOf('does not exist') !== -1 || msg.indexOf('column') !== -1) continue;
+                    throw error;
+                }
+
+                const { data, error } = await supabaseClient
+                    .from('conference_users')
+                    .select('*');
+                if (error) throw error;
+                return data || [];
+            }
+
+            async function loadUsers(options) {
+                requireAuthed();
+                const force = options && options.force;
+
+                const now = Date.now();
+                if (!force && now - lastLoadAt < 30000 && users.length > 0) {
+                    updateStats();
+                    renderTable();
+                    return users;
+                }
+
+                if (loadUsersPromise) return loadUsersPromise;
+
+                loadUsersPromise = (async function () {
+                    try {
+                        const rows = await fetchUsersOrdered();
+                        users = rows.map(normalizeUser).filter(Boolean);
+                        lastLoadAt = Date.now();
+                        updateStats();
+                        renderTable();
+                        return users;
+                    } catch (err) {
+                        console.error(err);
+                        users = [];
+                        updateStats();
+                        renderTable();
+                        showToast('加载数据失败：' + (err && err.message ? err.message : '未知错误'), 'error');
+                        return users;
+                    } finally {
+                        loadUsersPromise = null;
+                    }
+                })();
+
+                return loadUsersPromise;
+            }
+
+            function updateStats() {
+                $('totalCount').textContent = String(users.length);
+
+                const todayStart = new Date();
+                todayStart.setHours(0, 0, 0, 0);
+                const todayStartMs = todayStart.getTime();
+
+                let todayCount = 0;
+                let seatCount = 0;
+                let hotelCount = 0;
+
+                for (let i = 0; i < users.length; i++) {
+                    const u = users[i];
+                    if (u.seatNumber && String(u.seatNumber).trim()) seatCount++;
+                    if (u.hotel && String(u.hotel).trim()) hotelCount++;
+                    if (u.createdAt) {
+                        const t = new Date(u.createdAt).getTime();
+                        if (!isNaN(t) && t >= todayStartMs) todayCount++;
+                    }
+                }
+
+                $('todayCount').textContent = String(todayCount);
+                $('seatCount').textContent = String(seatCount);
+                $('hotelCount').textContent = String(hotelCount);
+            }
+
+            function escapeHtml(text) {
+                const s = String(text == null ? '' : text);
+                return s
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/\"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
+
+            function renderTable(data) {
+                const list = Array.isArray(data) ? data : users;
+                const tbody = $('userTableBody');
+                const emptyState = $('emptyState');
+
+                if (!tbody || !emptyState) return;
+
+                if (list.length === 0) {
+                    tbody.innerHTML = '';
+                    setHidden(emptyState, false);
+                    return;
+                }
+
+                setHidden(emptyState, true);
+                tbody.innerHTML = list.map((user, index) => `
+                    <tr class="table-row transition fade-in">
+                        <td class="px-4 py-3 text-sm text-gray-900">${index + 1}</td>
+                        <td class="px-4 py-3 text-sm text-gray-900 font-medium">${escapeHtml(user.name)}</td>
+                        <td class="px-4 py-3 text-sm text-gray-500">${escapeHtml(user.phone)}</td>
+                        <td class="px-4 py-3 text-sm text-gray-500">${escapeHtml(user.hotel || '-')}</td>
+                        <td class="px-4 py-3 text-sm text-gray-500">${escapeHtml(user.seatNumber || '-')}</td>
+                        <td class="px-4 py-3 text-sm text-gray-500">${escapeHtml(user.mealNumber || '-')}</td>
+                        <td class="px-4 py-3">
+                            <button onclick="editUser(${Number(user.id)})" style="background:#3b82f6;color:white;padding:4px 12px;border-radius:4px;font-size:12px;margin-right:8px;border:none;cursor:pointer;">编辑</button>
+                            <button onclick="deleteUser(${Number(user.id)})" style="background:#ef4444;color:white;padding:4px 12px;border-radius:4px;font-size:12px;border:none;cursor:pointer;">删除</button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            function searchUsers() {
+                requireAuthed();
+                const keyword = String(($('searchInput').value || '')).toLowerCase().trim();
+                if (!keyword) {
+                    renderTable(users);
+                    return;
+                }
+
+                const filtered = users.filter(u => {
+                    const name = String(u.name || '').toLowerCase();
+                    const phone = String(u.phone || '').toLowerCase();
+                    const hotel = String(u.hotel || '').toLowerCase();
+                    const seat = String(u.seatNumber || '').toLowerCase();
+                    const meal = String(u.mealNumber || '').toLowerCase();
+                    return (
+                        name.indexOf(keyword) !== -1 ||
+                        phone.indexOf(keyword) !== -1 ||
+                        hotel.indexOf(keyword) !== -1 ||
+                        seat.indexOf(keyword) !== -1 ||
+                        meal.indexOf(keyword) !== -1
+                    );
+                });
+
+                renderTable(filtered);
+            }
+            window.searchUsers = searchUsers;
+
+            async function upsertOrInsertUser(input, existingId) {
+                const payloadInsert = buildDbPayload(input, 'insert');
+                const payloadUpdate = buildDbPayload(input, 'update');
+
+                if (existingId) {
+                    const { data, error } = await supabaseClient
+                        .from('conference_users')
+                        .update(payloadUpdate)
+                        .eq('id', existingId)
+                        .select('*');
+                    if (error) throw error;
+                    return data && data[0] ? normalizeUser(data[0]) : null;
+                }
+
+                const { data, error } = await supabaseClient
+                    .from('conference_users')
+                    .insert(payloadInsert)
+                    .select('*');
+                if (error) throw error;
+                return data && data[0] ? normalizeUser(data[0]) : null;
+            }
+
+            function resetForm() {
+                $('userForm').reset();
+                $('editId').value = '';
+                $('formTitle').textContent = '添加用户';
+                $('submitBtnText').textContent = '保存';
+            }
+            window.resetForm = resetForm;
+
+            async function editUser(userId) {
+                requireAuthed();
+                const id = Number(userId);
+                if (!id) return;
+
+                const user = users.find(u => Number(u.id) === id);
+                if (!user) {
+                    showToast('未找到要编辑的用户', 'error');
+                    return;
+                }
+
+                $('name').value = user.name || '';
+                $('phone').value = user.phone || '';
+                $('hotel').value = user.hotel || '';
+                $('seatNumber').value = user.seatNumber || '';
+                $('mealNumber').value = user.mealNumber || '';
+                $('editId').value = String(id);
+
+                $('formTitle').textContent = '编辑用户';
+                $('submitBtnText').textContent = '更新';
+                $('userForm').scrollIntoView({ behavior: 'smooth' });
+            }
+            window.editUser = editUser;
+
+            async function deleteUser(userId) {
+                requireAuthed();
+                const id = Number(userId);
+                if (!id) return;
+                if (!confirm('确定要删除该用户吗？')) return;
+
+                try {
+                    const { error } = await supabaseClient
+                        .from('conference_users')
+                        .delete()
+                        .eq('id', id);
+                    if (error) throw error;
+
+                    users = users.filter(u => Number(u.id) !== id);
+                    updateStats();
+                    renderTable();
+                    showToast('用户删除成功');
+                } catch (err) {
+                    console.error(err);
+                    showToast('删除失败：' + (err && err.message ? err.message : '未知错误'), 'error');
+                }
+            }
+            window.deleteUser = deleteUser;
+
+            async function clearAllData() {
+                requireAuthed();
+                if (!confirm('确定要清空所有用户数据吗？此操作不可恢复！')) return;
+
+                try {
+                    const { error } = await supabaseClient
+                        .from('conference_users')
+                        .delete()
+                        .neq('id', 0);
+                    if (error) throw error;
+
+                    users = [];
+                    updateStats();
+                    renderTable();
+                    resetForm();
+                    showToast('数据已清空');
+                } catch (err) {
+                    console.error(err);
+                    showToast('清空失败：' + (err && err.message ? err.message : '未知错误'), 'error');
+                }
+            }
+            window.clearAllData = clearAllData;
+
+            async function handleSubmit(e) {
+                e.preventDefault();
+                requireAuthed();
+
+                const name = String($('name').value || '').trim();
+                const phone = String($('phone').value || '').trim();
+                const hotel = String($('hotel').value || '').trim();
+                const seatNumber = String($('seatNumber').value || '').trim();
+                const mealNumber = String($('mealNumber').value || '').trim();
+                const editIdRaw = $('editId').value;
+                const editId = editIdRaw ? Number(editIdRaw) : null;
+
+                if (!name || !phone) {
+                    showToast('姓名和手机号为必填项', 'error');
+                    return;
+                }
+
+                const existed = users.find(u => String(u.phone) === phone);
+                const existedId = existed ? Number(existed.id) : null;
+
+                try {
+                    const targetId = editId || existedId;
+                    if (!editId && existedId) {
+                        const ok = confirm('该手机号已存在，是否覆盖更新？');
+                        if (!ok) return;
+                    }
+
+                    const saved = await upsertOrInsertUser({ name, phone, hotel, seatNumber, mealNumber }, targetId);
+                    if (saved) {
+                        const idx = users.findIndex(u => Number(u.id) === Number(saved.id));
+                        if (idx !== -1) users[idx] = saved;
+                        else users.unshift(saved);
+                    }
+
+                    updateStats();
+                    renderTable();
+                    resetForm();
+                    showToast(editId ? '用户更新成功' : '用户保存成功');
+                } catch (err) {
+                    console.error(err);
+                    showToast('操作失败：' + (err && err.message ? err.message : '未知错误'), 'error');
+                }
+            }
+
+            async function importFromExcel(input) {
+                requireAuthed();
+                const file = input && input.files ? input.files[0] : null;
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = async function (e) {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+                        if (!jsonData || jsonData.length === 0) {
+                            showToast('Excel 文件为空', 'error');
+                            return;
+                        }
+
+                        const existingPhones = new Set(users.map(u => String(u.phone || '')));
+                        let addedCount = 0;
+                        let updatedCount = 0;
+
+                        const payloads = [];
+                        for (let i = 0; i < jsonData.length; i++) {
+                            const row = jsonData[i];
+                            const name = row['姓名'] || row['name'] || '';
+                            const phone = row['手机号'] || row['phone'] || '';
+                            const hotel = row['酒店'] || row['hotel'] || '';
+                            const seatNumber = row['座位号'] || row['seatNumber'] || row['seat_number'] || '';
+                            const mealNumber = row['餐席号'] || row['mealNumber'] || row['meal_number'] || '';
+
+                            if (!name || !phone) continue;
+
+                            const inputUser = {
+                                name: String(name).trim(),
+                                phone: String(phone).trim(),
+                                hotel: String(hotel).trim(),
+                                seatNumber: String(seatNumber).trim(),
+                                mealNumber: String(mealNumber).trim()
+                            };
+
+                            if (existingPhones.has(inputUser.phone)) updatedCount++;
+                            else {
+                                existingPhones.add(inputUser.phone);
+                                addedCount++;
+                            }
+
+                            payloads.push(buildDbPayload(inputUser, 'insert'));
+                        }
+
+                        if (payloads.length === 0) {
+                            showToast('未识别到有效数据（至少需要姓名+手机号）', 'error');
+                            return;
+                        }
+
+                        const chunks = [];
+                        for (let i = 0; i < payloads.length; i += 200) chunks.push(payloads.slice(i, i + 200));
+
+                        let usedFallback = false;
+                        try {
+                            for (let i = 0; i < chunks.length; i++) {
+                                const { error } = await supabaseClient
+                                    .from('conference_users')
+                                    .upsert(chunks[i], { onConflict: 'phone' });
+                                if (error) throw error;
+                            }
+                        } catch (err) {
+                            console.warn('upsert 失败，降级为逐条写入：', err);
+                            usedFallback = true;
+                            for (let i = 0; i < payloads.length; i++) {
+                                const p = payloads[i];
+                                const phone = String(p.phone || '');
+                                const existed = users.find(u => String(u.phone) === phone);
+                                if (existed && existed.id) {
+                                    const { error } = await supabaseClient
+                                        .from('conference_users')
+                                        .update(p)
+                                        .eq('id', existed.id);
+                                    if (error) throw error;
+                                } else {
+                                    const { error } = await supabaseClient
+                                        .from('conference_users')
+                                        .insert(p);
+                                    if (error) throw error;
+                                }
+                            }
+                        }
+
+                        await loadUsers({ force: true });
+                        showToast(`导入完成：新增 ${addedCount} 条，更新 ${updatedCount} 条${usedFallback ? '（降级模式）' : ''}`);
+                    } catch (err) {
+                        console.error(err);
+                        showToast('导入失败：' + (err && err.message ? err.message : '未知错误'), 'error');
+                    } finally {
+                        if (input) input.value = '';
+                    }
+                };
+
+                reader.readAsArrayBuffer(file);
+            }
+            window.importFromExcel = importFromExcel;
+
+            function exportToExcel() {
+                requireAuthed();
+                if (!users || users.length === 0) {
+                    showToast('没有数据可导出', 'error');
+                    return;
+                }
+
+                const exportData = users.map(user => ({
+                    '姓名': user.name,
+                    '手机号': user.phone,
+                    '酒店': user.hotel || '',
+                    '座位号': user.seatNumber || '',
+                    '餐席号': user.mealNumber || ''
+                }));
+
+                const worksheet = XLSX.utils.json_to_sheet(exportData);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, '用户数据');
+
+                const now = new Date();
+                const filename = `会务系统用户数据_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}.xlsx`;
+
+                XLSX.writeFile(workbook, filename);
+                showToast('导出成功');
+            }
+            window.exportToExcel = exportToExcel;
+
+            async function bootstrap() {
+                try {
+                    supabaseClient = createSupabaseClient();
+                } catch (err) {
+                    console.error(err);
+                    showLogin('Supabase 初始化失败：' + (err && err.message ? err.message : '未知错误'));
+                    return;
+                }
+
+                const hint = $('adminHint');
+                if (hint) {
+                    hint.textContent = ADMIN_EMAIL_ALLOWLIST && ADMIN_EMAIL_ALLOWLIST.length > 0
+                        ? `管理员邮箱（可修改 allowlist）：${ADMIN_EMAIL_ALLOWLIST.join(', ')}`
+                        : '未设置 allowlist：任何已登录账号都可进入后台（不推荐）。';
+                }
+                const emailInput = $('adminEmailInput');
+                if (emailInput && ADMIN_EMAIL_ALLOWLIST && ADMIN_EMAIL_ALLOWLIST.length > 0) {
+                    emailInput.value = ADMIN_EMAIL_ALLOWLIST[0];
+                }
+
+                supabaseClient.auth.onAuthStateChange(async function (_event, session) {
+                    if (!session) {
+                        currentSession = null;
+                        showLogin();
+                        return;
+                    }
+
+                    if (!isAllowedAdminEmail(session.user && session.user.email ? session.user.email : '')) {
+                        await logout();
+                        showToast('该账号没有后台权限', 'error');
+                        return;
+                    }
+
+                    currentSession = session;
+                });
+
+                const { data, error } = await supabaseClient.auth.getSession();
+                if (error) {
+                    console.error(error);
+                    showLogin('获取登录态失败，请重新登录');
+                    return;
+                }
+
+                if (data && data.session) {
+                    await showApp(data.session);
+                } else {
+                    showLogin();
+                }
+
+                const loginForm = $('loginForm');
+                if (loginForm) {
+                    loginForm.addEventListener('submit', async function (e) {
+                        e.preventDefault();
+
+                        const email = String($('adminEmailInput').value || '').trim().toLowerCase();
+                        const password = String($('adminPasswordInput').value || '');
+                        const loginBtn = $('loginBtn');
+                        const loginError = $('loginError');
+
+                        if (!email || !password) {
+                            if (loginError) {
+                                loginError.textContent = '请输入邮箱和密码';
+                                setHidden(loginError, false);
+                            }
+                            return;
+                        }
+
+                        if (!isAllowedAdminEmail(email)) {
+                            if (loginError) {
+                                loginError.textContent = '该邮箱不在管理员 allowlist 中';
+                                setHidden(loginError, false);
+                            }
+                            return;
+                        }
+
+                        try {
+                            if (loginError) setHidden(loginError, true);
+                            if (loginBtn) {
+                                loginBtn.disabled = true;
+                                loginBtn.querySelector('span').textContent = '登录中...';
+                            }
+
+                            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+                            if (error) throw error;
+
+                            await showApp(data.session);
+                            showToast('登录成功');
+                        } catch (err) {
+                            console.error(err);
+                            if (loginError) {
+                                loginError.textContent = '登录失败：' + (err && err.message ? err.message : '未知错误');
+                                setHidden(loginError, false);
+                            }
+                        } finally {
+                            if (loginBtn) {
+                                loginBtn.disabled = false;
+                                loginBtn.querySelector('span').textContent = '登录';
+                            }
+                        }
+                    });
+                }
+
+                $('userForm').addEventListener('submit', handleSubmit);
+            }
+
+            document.addEventListener('DOMContentLoaded', bootstrap);
+        })();
     </script>
 </body>
 </html>
