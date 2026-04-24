@@ -621,8 +621,18 @@
             console.log('🔍 检查缓存的用户信息...');
             const cachedUserName = localStorage.getItem('cachedUserName');
             const cachedUserData = localStorage.getItem('currentUser');
-            
+            let hasValidSession = false;
+
             if (cachedUserName && cachedUserData) {
+                try {
+                    const user = JSON.parse(cachedUserData);
+                    hasValidSession = !!(user && typeof user === 'object' && user.name && user.name === cachedUserName);
+                } catch (_error) {
+                    hasValidSession = false;
+                }
+            }
+            
+            if (hasValidSession) {
                 console.log('✅ 发现缓存的用户信息:', cachedUserName);
                 try {
                     const user = JSON.parse(cachedUserData);
